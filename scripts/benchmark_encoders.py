@@ -25,12 +25,23 @@ import statistics
 import time
 
 import torch
+from torch.utils.flop_counter import FlopCounterMode
 
 from cdlib.models.encoders import ENCODER_REGISTRY
 
 
 def _param_count(model: torch.nn.Module) -> int:
     return sum(p.numel() for p in model.parameters())
+
+
+def _pair_flops(model: torch.nn.Module, img1: torch.Tensor, img2: torch.Tensor) -> int:
+    """Pair-input FLOPs (both frames through the Siamese forward), via
+    torch's built-in flop counter — no extra dependency (fvcore/thop)
+    needed on torch>=2.2.
+    """
+    with torch.no_grad(), FlopCounterMode(display=False) as fc:
+        model.forward_pair(img1, img2)
+    return fc.get_total_flops()
 
 
 def _bench_one(
@@ -40,6 +51,8 @@ def _bench_one(
     img1 = torch.rand(batch_size, 3, img_size, img_size, device=device)
     img2 = torch.rand(batch_size, 3, img_size, img_size, device=device)
     use_cuda = device == "cuda" and torch.cuda.is_available()
+
+    gflops = _pair_flops(model, img1, img2) / 1e9
 
     with torch.no_grad():
         for _ in range(n_warmup):
@@ -73,6 +86,7 @@ def _bench_one(
     return {
         "key": key,
         "params_M": _param_count(model) / 1e6,
+        "pair_gflops": gflops,
         "median_ms": median,
         "iqr_ms": (q1, q3),
         "peak_mem_MB": peak_mem_mb,
@@ -94,14 +108,17 @@ def main() -> None:
     if not use_cuda:
         print("WARNING: not running on CUDA — this is a smoke test, not the reportable measurement.")
 
-    header = f"{'encoder':<20}{'params(M)':>12}{'median(ms)':>14}{'IQR(ms)':>22}{'peak_mem(MB)':>16}"
+    header = (
+        f"{'encoder':<20}{'params(M)':>12}{'pair GFLOPs':>13}"
+        f"{'median(ms)':>14}{'IQR(ms)':>22}{'peak_mem(MB)':>16}"
+    )
     print(header)
     for key in ENCODER_REGISTRY.keys():
         r = _bench_one(key, args.batch_size, args.img_size, args.warmup, args.iters, args.device)
         iqr_str = f"[{r['iqr_ms'][0]:.2f}, {r['iqr_ms'][1]:.2f}]"
         print(
-            f"{r['key']:<20}{r['params_M']:>12.2f}{r['median_ms']:>14.2f}"
-            f"{iqr_str:>22}{r['peak_mem_MB']:>16.1f}"
+            f"{r['key']:<20}{r['params_M']:>12.2f}{r['pair_gflops']:>13.2f}"
+            f"{r['median_ms']:>14.2f}{iqr_str:>22}{r['peak_mem_MB']:>16.1f}"
         )
 
 

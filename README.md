@@ -19,7 +19,8 @@ It follows the frozen interfaces and registry pattern from the shared `CLAUDE.md
 - **`decoders/unet_decoder.py`** — top-down U-Net/FPN-style decoder over N skip levels, coarsest→finest, upsample+concat+conv at each step.
 - **`baselines/siamese_resnet18.py`** — composes encoder + abs-diff fusion + decoder into the mandatory "stronger baseline", satisfying the frozen model `forward` contract (`logits`/`confidence`/`aux`).
 - **`tests/test_shapes.py`** — parametrized over every `ENCODER_REGISTRY` / `FUSION_REGISTRY` key; also checks the stride-32 dilation path, abs-diff's order-invariance, signed-diff's swap-antisymmetry, and the baseline's forward contract + gradient flow.
-- **`scripts/benchmark_encoders.py`** — standalone step-time benchmark (CUDA events, warm-up excluded, median + IQR, peak memory) for the Week 3 "which encoder do we default to" measurement. Meant to be superseded by/merged with P5's `cdlib.cli.benchmark` once that exists.
+- **`scripts/benchmark_encoders.py`** — standalone step-time benchmark (CUDA events, warm-up excluded, median + IQR, peak memory, plus pair-input GFLOPs via `torch.utils.flop_counter`) for the Week 3 "which encoder do we default to" measurement. Meant to be superseded by/merged with P5's `cdlib.cli.benchmark` once that exists.
+- **`tests/test_overfit_one_batch.py`** — per research/06's test strategy: the baseline must drive loss down sharply on a tiny fixed batch in <100 steps. First attempt used a pixel-random target and plateaued near BCE's ln(2) — not a bug (gradients checked healthy early on), just no learnable signal in noise-vs-noise; fixed to use a deterministic spatial target, which is what this kind of test is actually meant to catch shape/gradient bugs against. See the file's docstring.
 
 ## Not yet implemented / explicitly out of scope here
 
