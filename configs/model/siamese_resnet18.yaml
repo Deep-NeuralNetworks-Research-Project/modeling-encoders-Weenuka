@@ -1,0 +1,6 @@
+# DRAFT — see configs/model/README.md
+_target_: cdlib.models.baselines.siamese_resnet18.SiameseResNet18
+pretrained: true
+use_c5: true
+dilate_last: false
+decoder_channels: null   # null -> decoder default: [max(32, c // 2) for c in reversed(in_channels)]

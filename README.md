@@ -21,6 +21,10 @@ It follows the frozen interfaces and registry pattern from the shared `CLAUDE.md
 - **`tests/test_shapes.py`** — parametrized over every `ENCODER_REGISTRY` / `FUSION_REGISTRY` key; also checks the stride-32 dilation path, abs-diff's order-invariance, signed-diff's swap-antisymmetry, and the baseline's forward contract + gradient flow.
 - **`scripts/benchmark_encoders.py`** — standalone step-time benchmark (CUDA events, warm-up excluded, median + IQR, peak memory, plus pair-input GFLOPs via `torch.utils.flop_counter`) for the Week 3 "which encoder do we default to" measurement. Meant to be superseded by/merged with P5's `cdlib.cli.benchmark` once that exists.
 - **`tests/test_overfit_one_batch.py`** — per research/06's test strategy: the baseline must drive loss down sharply on a tiny fixed batch in <100 steps. First attempt used a pixel-random target and plateaued near BCE's ln(2) — not a bug (gradients checked healthy early on), just no learnable signal in noise-vs-noise; fixed to use a deterministic spatial target, which is what this kind of test is actually meant to catch shape/gradient bugs against. See the file's docstring.
+- **`tests/test_registries.py`** — registry integrity: expected keys present, unknown-key errors are helpful, every encoder/fusion entry builds and runs a dummy forward (caught a real edge case: EfficientNet-B2 at 32×32 collapses to 1×1 spatial and BatchNorm can't compute train-mode stats from a single value — fixed by using `.eval()` for this particular smoke check).
+- **`configs/model/`** — draft Hydra-shaped (`_target_`) configs for the baseline, both encoders, and all five fusion options, since P2's Hydra root doesn't exist yet to compose them into. `tests/test_config_validate.py` builds every one against the real constructors so they can't silently drift.
+- **`scripts/stride32_ablation.py`** — the cost side of the stride-32 ablation (params/pair-GFLOPs/output-stride across `use_c5`/`dilate_last`), runnable without any training data. The quality side (Boundary IoU) is blocked on P1/P2/a GPU.
+- **`paper/sections/experiments.md`** — draft of my Experiments/ablations writing assignment (per research/06 §8's section ownership): fixed methodology + tables for all four planned experiments, `TBD` placeholders for the numbers that need real training runs.
 
 ## Not yet implemented / explicitly out of scope here
 
@@ -39,8 +43,12 @@ python scripts/benchmark_encoders.py --batch-size 8 --img-size 256   # run on th
 ## Checklist status (mirrors `CLAUDE.local.md`)
 
 - [x] Week 2 — `encoders/resnet.py`, `encoders/efficientnet.py`, registered, shape-tested
+- [x] Week 2 — `configs/model/` entries (draft, pending P2's Hydra root)
 - [x] Week 3 — `fusion/absdiff.py`, `fusion/signed_fusion.py` (all 4 modes), registered, shape-tested
 - [x] Week 3–4 — `decoders/unet_decoder.py`, `baselines/siamese_resnet18.py`
+- [x] Week 3 — pair-input GFLOPs added to the benchmark script
+- [x] Weeks 5+ — stride-32 ablation, cost side (params/GFLOPs/stride, no training needed)
+- [x] Weeks 5+ — Experiments/ablations paper section, methodology + tables drafted (numbers pending)
 - [ ] Week 3 — encoder speed measurement run on an actual Colab/Kaggle GPU (script ready, needs a GPU session + team report-out)
 - [ ] Week 3–4 — LR sweep + ≥3-seed tuning of the ResNet-18 baseline (needs P1's dataloaders + P2's trainer)
-- [ ] Weeks 5+ — wire into `proposed.py` with P4; stride-32 ablation writeup; Experiments/ablations paper section
+- [ ] Weeks 5+ — wire into `proposed.py` with P4; stride-32 ablation quality side (Boundary IoU, needs real training)
