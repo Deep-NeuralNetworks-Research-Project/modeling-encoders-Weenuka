@@ -1,0 +1,40 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+build/
+dist/
+*.egg
+
+# environments
+.venv/
+venv/
+env/
+
+# data / checkpoints — never commit media or large binaries
+data/
+checkpoints/
+results/
+wandb/
+*.pt
+*.pth
+*.ckpt
+
+# secrets
+.env
+.netrc
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Whole-team project docs (proposal, research dossier, team-claude role
+# files) live alongside this repo locally for reference but belong to
+# the main team repo, not this personal P3-scope repo — keep them off
+# git here.
+CLAUDE.local.md
+proposal.pdf
+research/
+team-claude/
