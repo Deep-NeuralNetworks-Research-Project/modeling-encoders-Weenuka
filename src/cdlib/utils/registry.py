@@ -40,6 +40,17 @@ class Registry:
 
         return _decorator
 
+    def register_explicit(self, key: str, cls_or_fn: Callable[..., T]) -> None:
+        """Non-decorator registration, for a class registered under more
+        than one key (e.g. an alias) where the decorator form is awkward.
+        """
+        if key in self._entries:
+            raise KeyError(
+                f"{key!r} is already registered in the {self.name!r} registry "
+                f"(existing: {self._entries[key]!r}). Registry keys must be unique."
+            )
+        self._entries[key] = cls_or_fn
+
     def get(self, key: str) -> Callable[..., T]:
         if key not in self._entries:
             raise KeyError(

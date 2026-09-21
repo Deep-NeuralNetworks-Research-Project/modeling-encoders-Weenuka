@@ -1,0 +1,4 @@
+# Directional-head equivariance under swap (Member 5, Part C). Requires
+# aux['directional_logits'] and aux['directional_logits_swapped'] — see
+# cdlib.metrics.directional.DirectionalEquivarianceMetric.
+_target_: cdlib.metrics.directional.DirectionalEquivarianceMetric

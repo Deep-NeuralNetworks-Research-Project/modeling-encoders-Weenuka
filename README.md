@@ -1,13 +1,13 @@
 # modeling-encoders-Weenuka
 
-**P3 — Modeling A** (encoders, fusion, decoders) for *Pair-Order Consistent & Uncertainty-Aware Semantic Change Detection* — University of Moratuwa, CSE semester project. See the parent team repo for the full project (proposal, research dossier, other roles). This repo holds only the component set owned by P3 per `CODEOWNERS`:
+Weenuka Rajapaksha's work on *Pair-Order Consistent & Uncertainty-Aware Semantic Change Detection* — University of Moratuwa, CSE semester project. Covers two phases under two different role-numbering schemes the team used at different points:
 
-```
-src/cdlib/models/encoders/    src/cdlib/models/fusion/
-src/cdlib/models/decoders/    src/cdlib/models/baselines/siamese_resnet18.py
-```
+- **Phase 1 — P3 "Modeling A"** (encoders, fusion, decoders — `team-claude/roles/P3-modeling-encoders.md`)
+- **Phase 2 — Member 5 "Uncertainty, calibration, selective prediction, directional head"** (`docs/member-tracks/05_rajapaksha_uncertainty_and_directional.md`)
 
-It follows the frozen interfaces and registry pattern from the shared `CLAUDE.md`: encoders return a list of multi-scale features, fusion takes two feature lists and returns one, decoders take the fused list and return `[B,1,H,W]` logits. `models/build.py` in this repo is a **starter stub only** (see its docstring) — the real Hydra-driven `build_model(cfg)` is shared infra owned by P2 and will replace it when the team's main repo scaffold lands.
+See the parent team repo (`change-detect`, merging this repo with `baseline-infa-bula` and `metrics-integration-kusal`) for the full project — proposal, research dossier, other members' tracks. This repo holds my own contribution plus the minimum vendored dependencies needed to run it standalone (see "Vendored vs. authored here" below).
+
+It follows the frozen interfaces and registry pattern from the shared `CLAUDE.md`: encoders return a list of multi-scale features, fusion takes two feature lists and returns one, decoders take the fused list and return `[B,1,H,W]` logits; metrics implement `reset()/update()/compute()`. `models/build.py` in this repo is a **starter stub only** (see its docstring) — the real Hydra-driven `build_model(cfg)` is shared infra and will be replaced when merged into the team's main repo scaffold.
 
 ## What's implemented
 
@@ -26,18 +26,38 @@ It follows the frozen interfaces and registry pattern from the shared `CLAUDE.md
 - **`scripts/stride32_ablation.py`** — the cost side of the stride-32 ablation (params/pair-GFLOPs/output-stride across `use_c5`/`dilate_last`), runnable without any training data. The quality side (Boundary IoU) is blocked on P1/P2/a GPU.
 - **`paper/sections/experiments.md`** — draft of my Experiments/ablations writing assignment (per research/06 §8's section ownership): fixed methodology + tables for all four planned experiments, `TBD` placeholders for the numbers that need real training runs.
 
-## Not yet implemented / explicitly out of scope here
+## Phase 2 — Member 5: uncertainty, calibration, directional equivariance
 
-- Datasets, trainer/engine, CLI, Hydra configs, CI, alignment/heads/proposed.py, losses, metrics — owned by P1/P2/P4/P5 respectively; this repo intentionally doesn't invent them.
-- `models/build.py` here is a **throwaway stub** wiring only `siamese_resnet18`, just enough to make this component set runnable standalone. It is not meant to be merged as-is.
+Built against the team's merged `change-detect` monorepo, which by this phase already had most of "Part A" (calibration, temperature scaling) implemented from the `metrics-integration-kusal` slice, plus a working `ProposedModel` (P4 scaffold) emitting swap-pair outputs. My additions:
+
+- **`metrics/swap.py`** — `swap_prob_disagreement()` / `SCE_prob`: the continuous per-pixel `|p_fwd − p_rev|` companion to the existing hard `swap_agreement`, needs no ground truth. `sce_prob_pair_score()`: a GT-free pair-level confidence score on the same axis as MSR/Soft-Dice-Confidence. `SwapCalibrationMetric`: per-ordering ECE and **`Δ-ECE_swap`** — the calibration analogue of swap-consistency — plus whether `SCE_prob` actually correlates with pixel error (the track doc's Part B headline question) and how it ranks pairs on AURC against max-softmax-response.
+- **`metrics/directional.py`** (new) — `DirectionalEquivarianceMetric`: checks whether the directional head's appeared/disappeared channels actually **swap** under input reversal (equivariance — the correct symmetry, per `PairOrderConsistencyLoss`'s own permutation logic) rather than merely stay the same (invariance — the wrong property for this task).
+- Both registered in `METRIC_REGISTRY`, with `configs/metrics/*.yaml` drafts.
+- **13 new correctness tests**, including confirming end-to-end through the real `ProposedModel` that abs-diff fusion gives `Δ-ECE_swap = 0` and `SCE_prob = 0` exactly — not just in isolated math, but through the actual composed model (`test_uncertainty_integration.py`).
+
+No trained checkpoints exist anywhere in this project yet (`paper/sections/results.tex` in `change-detect` is still all `TBD`), so every test here is built on synthetic logits/masks, the same approach Phase 1 used for the overfit-one-batch check.
+
+**Still open in this track:** reliability diagrams split by ordering; Part C's real blocker is that no dataset ships directional ground-truth labels, so the equivariance metric works but has nothing labelled to score accuracy against yet (derived/pseudo-labels or a synthetic source is an open decision); everything downstream of actual training (real `Δ-ECE_swap` numbers, risk-coverage curves, the title go/no-go call to Member 1) is blocked on someone running training.
+
+## Vendored vs. authored here
+
+Some files in this repo are **not my own work** — they're copied as-is (or with a trivial import-path fix) from the team's merged `change-detect` monorepo, included only so this repo's own code actually runs standalone. Each vendored file says so in its docstring. Roughly:
+
+| Mine | Vendored (dependency only) |
+|---|---|
+| `models/encoders/`, `models/fusion/`, `models/decoders/`, `models/baselines/siamese_resnet18.py` (Phase 1) | `models/alignment/`, `models/heads/`, `models/proposed.py`, `models/_model_registry.py` (P4 scaffold) |
+| `metrics/swap.py`'s `SwapCalibrationMetric`/`SCE_prob`, `metrics/directional.py` (Phase 2) | `metrics/calibration.py`, `metrics/temperature.py`, `metrics/swap.py`'s pre-existing `SwapConsistencyMetric` (`metrics-integration-kusal`) |
+| `metrics/base.py`, `metrics/_tensor.py`, `metrics/registry.py`, `utils/registry.py` | shared plumbing, not really "owned" by any one track |
 
 ## Setup
 
 ```bash
-pip install -e .        # installs the cdlib package (torch, torchvision, timm)
-pip install -e .[dev]    # + pytest
-pytest tests/test_shapes.py -v
-python scripts/benchmark_encoders.py --batch-size 8 --img-size 256   # run on the actual Colab/Kaggle GPU
+pip install -e .        # installs the cdlib package (torch, torchvision, timm, omegaconf)
+pip install -e .[dev]    # + pytest, pyyaml
+pytest -q                                                             # full suite (61 tests)
+pytest tests/test_shapes.py -v                                        # Phase 1 only
+pytest tests/test_swap_calibration.py tests/test_directional_equivariance.py tests/test_uncertainty_integration.py -v   # Phase 2 only
+python scripts/benchmark_encoders.py --batch-size 8 --img-size 256    # run on the actual Colab/Kaggle GPU
 ```
 
 ## Checklist status (mirrors `CLAUDE.local.md`)
@@ -52,3 +72,12 @@ python scripts/benchmark_encoders.py --batch-size 8 --img-size 256   # run on th
 - [ ] Week 3 — encoder speed measurement run on an actual Colab/Kaggle GPU (script ready, needs a GPU session + team report-out)
 - [ ] Week 3–4 — LR sweep + ≥3-seed tuning of the ResNet-18 baseline (needs P1's dataloaders + P2's trainer)
 - [ ] Weeks 5+ — wire into `proposed.py` with P4; stride-32 ablation quality side (Boundary IoU, needs real training)
+
+### Phase 2 (Member 5) checklist status (mirrors `docs/member-tracks/05`)
+
+- [x] Part A — ECE/Brier/NLL/AURC (vendored, pre-existing) + **Δ-ECE_swap** (new, `SwapCalibrationMetric`)
+- [x] Part B — `SCE_prob` as a label-free confidence signal, tested against a constructed error-correlated case; AURC comparison vs. MSR
+- [ ] Part B — real risk-coverage curves and an abstention operating point (needs real predictions)
+- [x] Part C — the equivariance metric itself (`DirectionalEquivarianceMetric`)
+- [ ] Part C — an actual directional-label source (derived or synthetic) so the metric has something to score accuracy against
+- [ ] Title go/no-go recommendation to Member 1 — blocked until real calibration numbers exist

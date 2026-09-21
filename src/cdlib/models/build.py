@@ -13,9 +13,12 @@ from __future__ import annotations
 import torch.nn as nn
 
 from cdlib.models.baselines.siamese_resnet18 import SiameseResNet18
+from cdlib.models.proposed import ProposedModel
 
 _MODELS = {
     "siamese_resnet18": SiameseResNet18,
+    "proposed": ProposedModel,
+    "proposed_effnet": ProposedModel,
 }
 
 

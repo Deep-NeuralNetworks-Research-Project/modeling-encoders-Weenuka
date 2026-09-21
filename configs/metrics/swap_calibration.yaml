@@ -1,0 +1,4 @@
+# Δ-ECE_swap + SCE_prob (Member 5 / uncertainty track). Requires
+# outputs['logits_swapped'] — see cdlib.metrics.swap.SwapCalibrationMetric.
+_target_: cdlib.metrics.swap.SwapCalibrationMetric
+n_bins: 15

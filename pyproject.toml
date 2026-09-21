@@ -5,12 +5,13 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "cdlib"
 version = "0.1.0"
-description = "Change-detection modeling library — P3 scope: encoders, fusion, decoders"
+description = "Change-detection modeling library — Phase 1 (P3: encoders, fusion, decoders) + Phase 2 (Member 5: uncertainty, calibration, directional equivariance)"
 requires-python = ">=3.10"
 dependencies = [
     "torch>=2.2",
     "torchvision>=0.17",
     "timm>=1.0",
+    "omegaconf>=2.3",
 ]
 
 [project.optional-dependencies]
